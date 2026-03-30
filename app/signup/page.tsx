@@ -21,7 +21,11 @@ export default function SignUp() {
     const { error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-      setError(error.message);
+      if (error.message.toLowerCase().includes("already registered") || error.message.toLowerCase().includes("user already exists")) {
+        setError("An account with this email already exists. Try logging in instead.");
+      } else {
+        setError(error.message);
+      }
     } else {
       setSuccess(true);
     }
@@ -72,7 +76,14 @@ export default function SignUp() {
                   style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "2px solid #E5E3DD", fontSize: 15, outline: "none", background: "#fff", fontFamily: "system-ui, sans-serif", color: "#1A1A1A", boxSizing: "border-box" }}
                 />
               </div>
-              {error && <p style={{ fontSize: 13, color: "red", fontFamily: "system-ui, sans-serif", marginBottom: 16 }}>{error}</p>}
+              {error && (
+                <p style={{ fontSize: 13, color: "red", fontFamily: "system-ui, sans-serif", marginBottom: 16 }}>
+                  {error}{" "}
+                  {error.includes("already exists") && (
+                    <a href="/login" style={{ color: "#2D4878", fontWeight: 500 }}>Log in</a>
+                  )}
+                </p>
+              )}
               <button
                 onClick={handleSignUp}
                 disabled={loading}
