@@ -169,40 +169,26 @@ export default function InterviewPrep() {
     setExporting(true);
     setExportMsg("");
     try {
-      // Build plain text content
-      const lines: string[] = [`Interview Prep Notes\n${"=".repeat(40)}\n`];
+      // Build plain text content and encode as a real text file saved as .txt
+      const lines: string[] = [
+        "INTERVIEW PREP NOTES",
+        `Exported from Valt · ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`,
+        "=".repeat(50),
+        "",
+      ];
       answered.forEach((qa, i) => {
-        lines.push(`Q${i + 1}: ${qa.question}\n`);
-        lines.push(`A: ${qa.answer}\n`);
-        lines.push("-".repeat(40) + "\n");
+        lines.push(`Q${i + 1}: ${qa.question}`);
+        lines.push("");
+        lines.push(`A: ${qa.answer}`);
+        lines.push("");
+        lines.push("-".repeat(50));
+        lines.push("");
       });
       const text = lines.join("\n");
-
-      // Convert to PDF-like blob using HTML + print
-      const htmlContent = `
-        <html><head><style>
-          body { font-family: Georgia, serif; padding: 40px; max-width: 700px; margin: 0 auto; color: #1A1A1A; }
-          h1 { font-size: 22px; margin-bottom: 8px; color: #2D4878; }
-          .meta { font-size: 13px; color: #9CA3AF; margin-bottom: 32px; }
-          .qa { margin-bottom: 28px; border-bottom: 1px solid #E5E3DD; padding-bottom: 20px; }
-          .q { font-size: 15px; font-weight: 700; color: #2D4878; margin-bottom: 8px; }
-          .a { font-size: 14px; line-height: 1.7; color: #1A1A1A; white-space: pre-wrap; }
-        </style></head><body>
-          <h1>Interview Prep Notes</h1>
-          <div class="meta">Exported from Valt · ${new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}</div>
-          ${answered.map((qa, i) => `
-            <div class="qa">
-              <div class="q">Q${i + 1}: ${qa.question}</div>
-              <div class="a">${qa.answer.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>
-            </div>
-          `).join("")}
-        </body></html>
-      `;
-
-      const blob = new Blob([htmlContent], { type: "application/octet-stream" });
-      const fileName = `${Date.now()}_interview-prep-notes.pdf`;
+      const blob = new Blob([text], { type: "text/plain" });
+      const fileName = `${Date.now()}_interview-prep-notes.txt`;
       const path = `${userId}/${fileName}`;
-      const { error } = await supabase.storage.from("documents").upload(path, blob, { contentType: "application/pdf" });
+      const { error } = await supabase.storage.from("documents").upload(path, blob, { contentType: "text/plain" });
       if (error) throw error;
       setExportMsg("✓ Saved to Document Vault!");
     } catch {
