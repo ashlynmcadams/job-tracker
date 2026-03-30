@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import Sidebar from "../components/sidebar";
+import Sidebar from "../components/Sidebar";
 
 type Job = {
   id: string;
