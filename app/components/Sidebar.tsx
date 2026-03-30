@@ -3,8 +3,8 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { label: "Dashboard", href: "/dashboard", icon: "⊞" },
-  { label: "Tracker", href: "/tracker", icon: "📋" },
-  { label: "Vault", href: "/vault", icon: "🗂️" },
+  { label: "Job Tracker", href: "/tracker", icon: "📋" },
+  { label: "Document Vault", href: "/vault", icon: "🗂️" },
   { label: "Resume", href: "/resume", icon: "✏️" },
   { label: "Cover letter", href: "/coverletter", icon: "📝" },
   { label: "Interview prep", href: "/prep", icon: "🎯" },
