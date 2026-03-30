@@ -39,14 +39,12 @@ export default function Vault() {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Only allow PDFs and Word docs
-    const allowed = ["application/pdf", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
+    const allowed = ["application/pdf"];
     if (!allowed.includes(file.type)) {
-      setError("Only PDF and Word documents are supported.");
+      setError("Only PDF files are supported.");
       return;
     }
 
-    // Max file size 5MB
     if (file.size > 5 * 1024 * 1024) {
       setError("File must be under 5MB.");
       return;
@@ -88,14 +86,7 @@ export default function Vault() {
     return new Date(str).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   }
 
-  function getFileIcon(name: string) {
-    if (name.endsWith(".pdf")) return "📄";
-    if (name.endsWith(".doc") || name.endsWith(".docx")) return "📝";
-    return "📁";
-  }
-
   function cleanName(name: string) {
-    // Remove the timestamp prefix we added on upload
     return name.replace(/^\d+_/, "");
   }
 
@@ -114,11 +105,14 @@ export default function Vault() {
         {/* Top nav */}
         <nav style={{ background: "#fff", borderBottom: "1px solid #E5E3DD", boxShadow: "0 1px 12px rgba(0,0,0,0.06)", position: "sticky", top: 0, zIndex: 40 }}>
           <div style={{ padding: "0 40px", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#1A1A1A", fontFamily: "system-ui, sans-serif" }}>Document vault</h1>
-            <label style={{ padding: "10px 22px", background: "#2D4878", color: "#fff", fontSize: 14, borderRadius: 10, cursor: "pointer", fontFamily: "system-ui, sans-serif", fontWeight: 500 }}>
-              {uploading ? "Uploading..." : "+ Upload document"}
-              <input type="file" accept=".pdf,.doc,.docx" onChange={handleUpload} style={{ display: "none" }} disabled={uploading} />
-            </label>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#1A1A1A", fontFamily: "system-ui, sans-serif" }}>Document Vault</h1>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+              <label style={{ padding: "10px 22px", background: "#2D4878", color: "#fff", fontSize: 14, borderRadius: 10, cursor: "pointer", fontFamily: "system-ui, sans-serif", fontWeight: 500 }}>
+                {uploading ? "Uploading..." : "+ Upload Document"}
+                <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: "none" }} disabled={uploading} />
+              </label>
+              <p style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "system-ui, sans-serif", margin: 0 }}>PDF files only (.pdf)</p>
+            </div>
           </div>
         </nav>
 
@@ -133,8 +127,8 @@ export default function Vault() {
           {/* Info box */}
           <div style={{ background: "#EBF0F8", borderRadius: 14, padding: "16px 20px", marginBottom: 28, display: "flex", gap: 12, alignItems: "flex-start" }}>
             <span style={{ fontSize: 18 }}>ℹ️</span>
-            <p style={{ fontSize: 13, color: "#2D4878", fontFamily: "system-ui, sans-serif", lineHeight: 1.6 }}>
-              Upload your resumes and cover letters here. Supported formats: PDF, DOC, DOCX. Max size: 5MB per file. Only you can see your documents.
+            <p style={{ fontSize: 13, color: "#2D4878", fontFamily: "system-ui, sans-serif", lineHeight: 1.6, margin: 0 }}>
+              Upload your resumes and cover letters here. Max size: 5MB per file. Only you can see your documents.
             </p>
           </div>
 
@@ -143,17 +137,20 @@ export default function Vault() {
               <p style={{ fontSize: 32, marginBottom: 16 }}>🗂️</p>
               <p style={{ fontSize: 17, fontWeight: 600, color: "#1A1A1A", marginBottom: 8 }}>No documents yet</p>
               <p style={{ fontSize: 14, color: "#4A4A4A", fontFamily: "system-ui, sans-serif", marginBottom: 24 }}>Upload your resume or cover letter to get started.</p>
-              <label style={{ padding: "12px 24px", background: "#2D4878", color: "#fff", fontSize: 14, borderRadius: 10, cursor: "pointer", fontFamily: "system-ui, sans-serif", fontWeight: 500 }}>
-                Upload your first document
-                <input type="file" accept=".pdf,.doc,.docx" onChange={handleUpload} style={{ display: "none" }} />
-              </label>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                <label style={{ padding: "12px 24px", background: "#2D4878", color: "#fff", fontSize: 14, borderRadius: 10, cursor: "pointer", fontFamily: "system-ui, sans-serif", fontWeight: 500 }}>
+                  Upload your first document
+                  <input type="file" accept=".pdf" onChange={handleUpload} style={{ display: "none" }} />
+                </label>
+                <p style={{ fontSize: 11, color: "#9CA3AF", fontFamily: "system-ui, sans-serif", margin: 0 }}>PDF files only (.pdf)</p>
+              </div>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
               {docs.map(doc => (
                 <div key={doc.name} style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 16, padding: "22px", display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
-                    <span style={{ fontSize: 28 }}>{getFileIcon(doc.name)}</span>
+                    <span style={{ fontSize: 28 }}>📄</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 4, wordBreak: "break-word" }}>{cleanName(doc.name)}</p>
                       <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>

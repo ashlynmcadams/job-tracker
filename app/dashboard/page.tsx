@@ -60,7 +60,6 @@ export default function Dashboard() {
     </main>
   );
 
-  // Stats
   const total = jobs.length;
   const interviews = jobs.filter(j => j.status === "interview").length;
   const offers = jobs.filter(j => j.status === "offer").length;
@@ -78,7 +77,6 @@ export default function Dashboard() {
     <div style={{ display: "flex", background: "#F7F6F2", minHeight: "100vh" }}>
       <Sidebar />
 
-      {/* Main content — offset by sidebar width */}
       <div style={{ marginLeft: 220, flex: 1, display: "flex", flexDirection: "column" }}>
 
         {/* Top nav */}
@@ -172,7 +170,11 @@ export default function Dashboard() {
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {jobs.slice(0, 5).map(job => (
-                    <div key={job.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "#F7F6F2", borderRadius: 10 }}>
+                    <button
+                      key={job.id}
+                      onClick={() => router.push("/tracker")}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "#F7F6F2", borderRadius: 10, border: "none", cursor: "pointer", textAlign: "left", width: "100%" }}
+                    >
                       <div>
                         <p style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 2 }}>{job.company}</p>
                         <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>{job.title}</p>
@@ -180,7 +182,7 @@ export default function Dashboard() {
                       <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_COLORS[job.status] ?? "#1A1A1A", background: "#fff", padding: "4px 10px", borderRadius: 999, fontFamily: "system-ui, sans-serif", border: `1px solid ${STATUS_COLORS[job.status] ?? "#E5E3DD"}` }}>
                         {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
                       </span>
-                    </div>
+                    </button>
                   ))}
                 </div>
               )}
@@ -206,15 +208,15 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* Document vault preview */}
+              {/* Document Vault preview */}
               <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1A1A1A" }}>Document vault 🗂️</h2>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1A1A1A" }}>Document Vault 🗂️</h2>
                   <a href="/vault" style={{ fontSize: 13, color: "#2D4878", fontFamily: "system-ui, sans-serif", fontWeight: 500, textDecoration: "none" }}>View all</a>
                 </div>
                 <p style={{ fontSize: 14, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>Store and manage your resumes and cover letters.</p>
                 <a href="/vault" style={{ display: "inline-block", marginTop: 14, fontSize: 13, background: "#EBF0F8", color: "#2D4878", padding: "8px 16px", borderRadius: 8, fontFamily: "system-ui, sans-serif", fontWeight: 500, textDecoration: "none" }}>
-                  Go to vault →
+                  Go to Document Vault →
                 </a>
               </div>
 
