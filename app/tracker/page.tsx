@@ -97,7 +97,11 @@ export default function Tracker() {
   async function handleStatusChange(id: string, status: string) {
     await supabase.from("jobs").update({ status }).eq("id", id);
     setJobs(jobs.map(j => j.id === id ? { ...j, status } : j));
-  }
+  }async function handleStillActive(id: string) {
+  const today = new Date().toISOString().split("T")[0];
+  await supabase.from("jobs").update({ date_applied: today }).eq("id", id);
+  setJobs(jobs.map(j => j.id === id ? { ...j, date_applied: today } : j));
+}
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this application?")) return;
