@@ -20,8 +20,8 @@ function urgencyLabel(job: Job): { label: string; color: string; bg: string; bor
   const days = daysSince(job.date_applied);
   if (job.status === "interview") return { label: "Interview stage", color: "#7C3AED", bg: "#F5F0FF", border: "#DDD6FE", priority: 0 };
   if (job.status === "offer")     return { label: "Offer received", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 0 };
-  if (job.status === "applied" && days >= 14) return { label: `${days}d — follow up now`, color: "#DC2626", bg: "#FFF5F5", border: "#FECACA", priority: 1 };
-  if (job.status === "applied" && days >= 7)  return { label: `${days}d — consider following up`, color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", priority: 2 };
+  if (job.status === "applied" && days >= 14) return { label: `${days}d — no update`, color: "#DC2626", bg: "#FFF5F5", border: "#FECACA", priority: 1 };
+  if (job.status === "applied" && days >= 7)  return { label: `${days}d — still waiting`, color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", priority: 2 };
   if (job.status === "ghosted")  return { label: "Ghosted", color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", priority: 4 };
   if (job.status === "rejected") return { label: "Rejected", color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", priority: 4 };
   return { label: `${days}d ago`, color: "#2D4878", bg: "#EBF0F8", border: "#BFCFEC", priority: 3 };
@@ -70,23 +70,30 @@ export default function Dashboard() {
     router.push("/");
   }
 
+  // Resets the clock — "still active" snooze
+  async function handleStillActive(id: string) {
+    const today = new Date().toISOString().split("T")[0];
+    await supabase.from("jobs").update({ date_applied: today }).eq("id", id);
+    setJobs(jobs.map(j => j.id === id ? { ...j, date_applied: today } : j));
+  }
+
+  // Marks as ghosted — "move on"
+  async function handleMoveOn(id: string) {
+    await supabase.from("jobs").update({ status: "ghosted" }).eq("id", id);
+    setJobs(jobs.map(j => j.id === id ? { ...j, status: "ghosted" } : j));
+  }
+
   if (loading) return (
     <main style={{ background: "#F7F6F2", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <p style={{ fontFamily: "system-ui, sans-serif", color: "#4A4A4A" }}>Loading...</p>
     </main>
   );
 
-  // Sort by urgency priority
   const sorted = [...jobs].sort((a, b) => urgencyLabel(a).priority - urgencyLabel(b).priority);
-
-  const needsAction = sorted.filter(j => {
-    const days = daysSince(j.date_applied);
-    return (j.status === "applied" && days >= 7) || j.status === "interview" || j.status === "offer";
-  });
-
-  const active = sorted.filter(j => j.status !== "rejected" && j.status !== "ghosted");
+  const needsDecision = sorted.filter(j => j.status === "applied" && daysSince(j.date_applied) >= 7);
   const interviews = jobs.filter(j => j.status === "interview").length;
   const offers = jobs.filter(j => j.status === "offer").length;
+  const active = sorted.filter(j => j.status !== "rejected" && j.status !== "ghosted");
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -120,33 +127,46 @@ export default function Dashboard() {
           <div style={{ marginBottom: 32 }}>
             <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.5px", marginBottom: 6 }}>{greeting()}.</h2>
             <p style={{ fontSize: 15, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>
-              {needsAction.length === 0
-                ? "You're all caught up. No action needed right now."
-                : `You have ${needsAction.length} application${needsAction.length > 1 ? "s" : ""} that need${needsAction.length === 1 ? "s" : ""} your attention.`}
+              {needsDecision.length === 0
+                ? "You're all caught up. No decisions needed right now."
+                : `${needsDecision.length} application${needsDecision.length > 1 ? "s need" : " needs"} a decision.`}
             </p>
           </div>
 
-          {/* Needs attention */}
-          {needsAction.length > 0 && (
+          {/* Needs a decision */}
+          {needsDecision.length > 0 && (
             <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px", marginBottom: 24 }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A", marginBottom: 16 }}>Needs attention</h3>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A", marginBottom: 4 }}>Make a call</h3>
+              <p style={{ fontSize: 13, color: "#6B7280", fontFamily: "system-ui, sans-serif", marginBottom: 20 }}>
+                These have gone quiet. Are you still waiting, or is it time to move on?
+              </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {needsAction.map(job => {
+                {needsDecision.map(job => {
                   const u = urgencyLabel(job);
                   return (
-                    <button
+                    <div
                       key={job.id}
-                      onClick={() => router.push("/tracker")}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: u.bg, border: `1px solid ${u.border}`, borderRadius: 12, cursor: "pointer", textAlign: "left", width: "100%" }}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: u.bg, border: `1px solid ${u.border}`, borderRadius: 12 }}
                     >
                       <div>
                         <p style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 2 }}>{job.company}</p>
-                        <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>{job.title}</p>
+                        <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>{job.title} · {u.label}</p>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: u.color, padding: "4px 10px", borderRadius: 999, fontFamily: "system-ui, sans-serif", whiteSpace: "nowrap" }}>
-                        {u.label}
-                      </span>
-                    </button>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => handleStillActive(job.id)}
+                          style={{ fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "2px solid #E5E3DD", background: "#fff", color: "#1A1A1A", cursor: "pointer", fontFamily: "system-ui, sans-serif", whiteSpace: "nowrap" }}
+                        >
+                          Still active
+                        </button>
+                        <button
+                          onClick={() => handleMoveOn(job.id)}
+                          style={{ fontSize: 12, fontWeight: 600, padding: "7px 14px", borderRadius: 8, border: "none", background: "#1A1A1A", color: "#fff", cursor: "pointer", fontFamily: "system-ui, sans-serif", whiteSpace: "nowrap" }}
+                        >
+                          Move on
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -155,7 +175,7 @@ export default function Dashboard() {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
-            {/* All active applications */}
+            {/* Active applications */}
             <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A" }}>Active applications</h3>
@@ -166,7 +186,7 @@ export default function Dashboard() {
                   >
                     + Add
                   </button>
-                  <a href="/tracker" style={{ fontSize: 13, color: "#2D4878", padding: "7px 16px", borderRadius: 8, border: "2px solid #2D4878", cursor: "pointer", fontFamily: "system-ui, sans-serif", fontWeight: 500, textDecoration: "none" }}>
+                  <a href="/tracker" style={{ fontSize: 13, color: "#2D4878", padding: "7px 16px", borderRadius: 8, border: "2px solid #2D4878", fontFamily: "system-ui, sans-serif", fontWeight: 500, textDecoration: "none" }}>
                     View all
                   </a>
                 </div>
@@ -237,8 +257,6 @@ export default function Dashboard() {
 
             {/* Right column */}
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-              {/* Stats — secondary, not hero */}
               <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px" }}>
                 <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A", marginBottom: 16 }}>Overview</h3>
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -255,7 +273,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Quick tip based on state */}
               <div style={{ background: "#2D4878", borderRadius: 20, padding: "28px" }}>
                 <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)", fontFamily: "system-ui, sans-serif", marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}>Tip</p>
                 <p style={{ fontSize: 15, color: "#fff", fontFamily: "system-ui, sans-serif", lineHeight: 1.6 }}>
@@ -263,12 +280,11 @@ export default function Dashboard() {
                     ? "You have an offer — make sure you've followed up with any other active applications before deciding."
                     : interviews > 0
                     ? "You're in interviews. Keep your other applications moving so you have options."
-                    : needsAction.length > 0
-                    ? "A follow-up email sent within 2 weeks of applying can meaningfully improve your response rate."
+                    : needsDecision.length > 0
+                    ? "Keeping your tracker honest is half the battle. Move on from what's gone quiet and focus on what's alive."
                     : "Stay consistent. Even one new application a day adds up fast."}
                 </p>
               </div>
-
             </div>
           </div>
         </section>
