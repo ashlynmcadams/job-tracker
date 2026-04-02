@@ -12,6 +12,21 @@ type Job = {
   date_applied: string;
 };
 
+function daysSince(dateStr: string) {
+  return Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function urgencyLabel(job: Job): { label: string; color: string; bg: string; border: string; priority: number } {
+  const days = daysSince(job.date_applied);
+  if (job.status === "interview") return { label: "Interview stage", color: "#7C3AED", bg: "#F5F0FF", border: "#DDD6FE", priority: 0 };
+  if (job.status === "offer")     return { label: "Offer received", color: "#059669", bg: "#ECFDF5", border: "#A7F3D0", priority: 0 };
+  if (job.status === "applied" && days >= 14) return { label: `${days}d — follow up now`, color: "#DC2626", bg: "#FFF5F5", border: "#FECACA", priority: 1 };
+  if (job.status === "applied" && days >= 7)  return { label: `${days}d — consider following up`, color: "#D97706", bg: "#FFFBEB", border: "#FDE68A", priority: 2 };
+  if (job.status === "ghosted")  return { label: "Ghosted", color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", priority: 4 };
+  if (job.status === "rejected") return { label: "Rejected", color: "#6B7280", bg: "#F9FAFB", border: "#E5E7EB", priority: 4 };
+  return { label: `${days}d ago`, color: "#2D4878", bg: "#EBF0F8", border: "#BFCFEC", priority: 3 };
+}
+
 export default function Dashboard() {
   const [userEmail, setUserEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -19,7 +34,8 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    company: "", title: "", url: "", location: "", salary: "", status: "applied", notes: "", date_applied: new Date().toISOString().split("T")[0],
+    company: "", title: "", url: "", location: "", salary: "", status: "applied", notes: "",
+    date_applied: new Date().toISOString().split("T")[0],
   });
   const router = useRouter();
   const supabase = createClient();
@@ -60,17 +76,23 @@ export default function Dashboard() {
     </main>
   );
 
-  const total = jobs.length;
+  // Sort by urgency priority
+  const sorted = [...jobs].sort((a, b) => urgencyLabel(a).priority - urgencyLabel(b).priority);
+
+  const needsAction = sorted.filter(j => {
+    const days = daysSince(j.date_applied);
+    return (j.status === "applied" && days >= 7) || j.status === "interview" || j.status === "offer";
+  });
+
+  const active = sorted.filter(j => j.status !== "rejected" && j.status !== "ghosted");
   const interviews = jobs.filter(j => j.status === "interview").length;
   const offers = jobs.filter(j => j.status === "offer").length;
-  const needsFollowUp = jobs.filter(j => j.status === "applied" && j.date_applied && (new Date().getTime() - new Date(j.date_applied).getTime()) > 7 * 24 * 60 * 60 * 1000);
 
-  const STATUS_COLORS: Record<string, string> = {
-    applied: "#2D4878",
-    interview: "#7C3AED",
-    offer: "#059669",
-    rejected: "#DC2626",
-    ghosted: "#6B7280",
+  const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return "Good morning";
+    if (h < 17) return "Good afternoon";
+    return "Good evening";
   };
 
   return (
@@ -92,34 +114,57 @@ export default function Dashboard() {
           </div>
         </nav>
 
-        <section style={{ padding: "40px 40px", maxWidth: 1100 }}>
+        <section style={{ padding: "40px", maxWidth: 1100 }}>
 
-          {/* Stats */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-            {[
-              { label: "Total applications", value: total, color: "#2D4878" },
-              { label: "Interviews", value: interviews, color: "#7C3AED" },
-              { label: "Offers", value: offers, color: "#059669" },
-            ].map(s => (
-              <div key={s.label} style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 16, padding: "24px 28px" }}>
-                <p style={{ fontSize: 13, color: "#4A4A4A", fontFamily: "system-ui, sans-serif", marginBottom: 8 }}>{s.label}</p>
-                <p style={{ fontSize: 36, fontWeight: 700, color: s.color, fontFamily: "system-ui, sans-serif" }}>{s.value}</p>
-              </div>
-            ))}
+          {/* Greeting */}
+          <div style={{ marginBottom: 32 }}>
+            <h2 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.5px", marginBottom: 6 }}>{greeting()}.</h2>
+            <p style={{ fontSize: 15, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>
+              {needsAction.length === 0
+                ? "You're all caught up. No action needed right now."
+                : `You have ${needsAction.length} application${needsAction.length > 1 ? "s" : ""} that need${needsAction.length === 1 ? "s" : ""} your attention.`}
+            </p>
           </div>
+
+          {/* Needs attention */}
+          {needsAction.length > 0 && (
+            <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px", marginBottom: 24 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A", marginBottom: 16 }}>Needs attention</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {needsAction.map(job => {
+                  const u = urgencyLabel(job);
+                  return (
+                    <button
+                      key={job.id}
+                      onClick={() => router.push("/tracker")}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", background: u.bg, border: `1px solid ${u.border}`, borderRadius: 12, cursor: "pointer", textAlign: "left", width: "100%" }}
+                    >
+                      <div>
+                        <p style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 2 }}>{job.company}</p>
+                        <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>{job.title}</p>
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: u.color, padding: "4px 10px", borderRadius: 999, fontFamily: "system-ui, sans-serif", whiteSpace: "nowrap" }}>
+                        {u.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
 
-            {/* Recent applications */}
+            {/* All active applications */}
             <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1A1A1A" }}>Recent applications</h2>
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A" }}>Active applications</h3>
                 <div style={{ display: "flex", gap: 10 }}>
                   <button
                     onClick={() => setShowForm(!showForm)}
                     style={{ fontSize: 13, background: "#2D4878", color: "#fff", padding: "7px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "system-ui, sans-serif", fontWeight: 500 }}
                   >
-                    + Add job
+                    + Add
                   </button>
                   <a href="/tracker" style={{ fontSize: 13, color: "#2D4878", padding: "7px 16px", borderRadius: 8, border: "2px solid #2D4878", cursor: "pointer", fontFamily: "system-ui, sans-serif", fontWeight: 500, textDecoration: "none" }}>
                     View all
@@ -127,7 +172,6 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Quick add form */}
               {showForm && (
                 <div style={{ background: "#F7F6F2", borderRadius: 12, padding: "20px", marginBottom: 20 }}>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
@@ -165,25 +209,28 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {jobs.length === 0 ? (
-                <p style={{ fontSize: 14, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>No applications yet. Add your first job!</p>
+              {active.length === 0 ? (
+                <p style={{ fontSize: 14, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>No active applications. Add your first job!</p>
               ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {jobs.slice(0, 5).map(job => (
-                    <button
-                      key={job.id}
-                      onClick={() => router.push("/tracker")}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "#F7F6F2", borderRadius: 10, border: "none", cursor: "pointer", textAlign: "left", width: "100%" }}
-                    >
-                      <div>
-                        <p style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 2 }}>{job.company}</p>
-                        <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>{job.title}</p>
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: STATUS_COLORS[job.status] ?? "#1A1A1A", background: "#fff", padding: "4px 10px", borderRadius: 999, fontFamily: "system-ui, sans-serif", border: `1px solid ${STATUS_COLORS[job.status] ?? "#E5E3DD"}` }}>
-                        {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-                      </span>
-                    </button>
-                  ))}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {active.slice(0, 6).map(job => {
+                    const u = urgencyLabel(job);
+                    return (
+                      <button
+                        key={job.id}
+                        onClick={() => router.push("/tracker")}
+                        style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: "#F7F6F2", borderRadius: 10, border: "none", cursor: "pointer", textAlign: "left", width: "100%" }}
+                      >
+                        <div>
+                          <p style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 2 }}>{job.company}</p>
+                          <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>{job.title}</p>
+                        </div>
+                        <span style={{ fontSize: 11, fontWeight: 600, color: u.color, fontFamily: "system-ui, sans-serif", whiteSpace: "nowrap" }}>
+                          {u.label}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -191,33 +238,35 @@ export default function Dashboard() {
             {/* Right column */}
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-              {/* Follow-up nudges */}
+              {/* Stats — secondary, not hero */}
               <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px" }}>
-                <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1A1A1A", marginBottom: 16 }}>Follow-up nudges 🔔</h2>
-                {needsFollowUp.length === 0 ? (
-                  <p style={{ fontSize: 14, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>You're all caught up!</p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                    {needsFollowUp.slice(0, 3).map(job => (
-                      <div key={job.id} style={{ padding: "12px 14px", background: "#FFF8F0", border: "1px solid #FDE8C8", borderRadius: 10 }}>
-                        <p style={{ fontSize: 14, fontWeight: 600, color: "#1A1A1A", marginBottom: 2 }}>{job.company}</p>
-                        <p style={{ fontSize: 12, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>Applied {job.date_applied} — consider following up</p>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <h3 style={{ fontSize: 15, fontWeight: 700, color: "#1A1A1A", marginBottom: 16 }}>Overview</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {[
+                    { label: "Active applications", value: active.length, color: "#2D4878" },
+                    { label: "In interviews", value: interviews, color: "#7C3AED" },
+                    { label: "Offers", value: offers, color: "#059669" },
+                  ].map(s => (
+                    <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #F0EFEB" }}>
+                      <p style={{ fontSize: 14, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>{s.label}</p>
+                      <p style={{ fontSize: 20, fontWeight: 700, color: s.color, fontFamily: "system-ui, sans-serif" }}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {/* Document Vault preview */}
-              <div style={{ background: "#fff", border: "1px solid #E5E3DD", borderRadius: 20, padding: "28px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-                  <h2 style={{ fontSize: 16, fontWeight: 700, color: "#1A1A1A" }}>Document Vault 🗂️</h2>
-                  <a href="/vault" style={{ fontSize: 13, color: "#2D4878", fontFamily: "system-ui, sans-serif", fontWeight: 500, textDecoration: "none" }}>View all</a>
-                </div>
-                <p style={{ fontSize: 14, color: "#4A4A4A", fontFamily: "system-ui, sans-serif" }}>Store and manage your resumes and cover letters.</p>
-                <a href="/vault" style={{ display: "inline-block", marginTop: 14, fontSize: 13, background: "#EBF0F8", color: "#2D4878", padding: "8px 16px", borderRadius: 8, fontFamily: "system-ui, sans-serif", fontWeight: 500, textDecoration: "none" }}>
-                  Go to Document Vault →
-                </a>
+              {/* Quick tip based on state */}
+              <div style={{ background: "#2D4878", borderRadius: 20, padding: "28px" }}>
+                <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.6)", fontFamily: "system-ui, sans-serif", marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}>Tip</p>
+                <p style={{ fontSize: 15, color: "#fff", fontFamily: "system-ui, sans-serif", lineHeight: 1.6 }}>
+                  {offers > 0
+                    ? "You have an offer — make sure you've followed up with any other active applications before deciding."
+                    : interviews > 0
+                    ? "You're in interviews. Keep your other applications moving so you have options."
+                    : needsAction.length > 0
+                    ? "A follow-up email sent within 2 weeks of applying can meaningfully improve your response rate."
+                    : "Stay consistent. Even one new application a day adds up fast."}
+                </p>
               </div>
 
             </div>
